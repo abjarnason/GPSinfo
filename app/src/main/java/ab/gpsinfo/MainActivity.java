@@ -1,7 +1,6 @@
 package ab.gpsinfo;
 
 import android.content.Context;
-import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -10,121 +9,148 @@ import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.LocationSource;
-import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
-public class MainActivity extends FragmentActivity implements LocationListener, LocationSource {
+public class MainActivity extends FragmentActivity implements LocationListener {
 
-    TextView locationProvider;
-
-    private GoogleMap mMap; // Might be null if Google Play services APK is not available.
-    //private LocationProvider mProvider;
+    private TextView ProviderInfo;
+    private GoogleMap mMap;
     private LocationManager locationManager;
+    private LocationManager locationManagerU;
     private String provider;
+    private String providerU;
 
+    // no costs, high accuracy, low battery consumption means that wifi or mobile networks will be
+    // used for the location provider when possible. Otherwise GPS will be used.
+
+
+    // Called on the start of the activity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
-        locationProvider = (TextView)findViewById(R.id.textViewLocationProvider);
+        ProviderInfo = (TextView)findViewById(R.id.ProviderInfoTextView);
+        mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map)).getMap();
+
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        Criteria criteria = new Criteria();
-        provider = locationManager.getBestProvider(criteria, false);
+
+
+        if(locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
+            provider = locationManager.NETWORK_PROVIDER;
+        }
+        else if(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+            provider = locationManager.GPS_PROVIDER;
+        }
+
         Location location = locationManager.getLastKnownLocation(provider);
 
         if (location != null) {
-            locationProvider.setText("Location provider: " + provider);
-            onLocationChanged(location);
-        } else {
-            locationProvider.setText("Location not available");
-        }
+            ProviderInfo.setText("Location provider: " + provider);
 
-        setUpMapIfNeeded();
+            LatLng coordinates = new LatLng(location.getLatitude(), location.getLongitude());
+
+            mMap.addMarker(new MarkerOptions()
+                    .position(coordinates)
+                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.here)));
+
+            CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(coordinates, 17);
+            mMap.animateCamera(cameraUpdate);
+
+            // Called continuously when the location changes..
+            onLocationChanged(location);
+
+        } else {
+            ProviderInfo.setText("Location provider not available");
+        }
     }
 
-    /* Request updates at startup */
+
+    @Override
+    public void onLocationChanged(Location location) {
+
+        if(locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
+            provider = locationManager.NETWORK_PROVIDER;
+        }
+        else if(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+            provider = locationManager.GPS_PROVIDER;
+        }
+
+
+        ProviderInfo.setText("Location provider: " + provider);
+
+        Toast.makeText(getApplicationContext(), "Latitude: "  + String.valueOf(location.getLatitude()) + "\n Longitude: " + String.valueOf(location.getLongitude()), Toast.LENGTH_SHORT).show();
+
+        LatLng coordinates = new LatLng(location.getLatitude(), location.getLongitude());
+
+        if(provider.equals("network")) {
+            mMap.addMarker(new MarkerOptions()
+                    .position(coordinates)
+                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.next)));
+        }
+
+        else if(provider.equals("gps")){
+            mMap.addMarker(new MarkerOptions()
+                    .position(coordinates)
+                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.next_gps)));
+        }
+
+        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(coordinates, 17);
+        mMap.animateCamera(cameraUpdate);
+
+    }
+
+    // For handling changes in the set of available providers.
+    @Override
+    public void onProviderEnabled(String provider) {
+
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
+        if(locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
+            provider = locationManager.NETWORK_PROVIDER;
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,1000,0,this);
+        }
+        else if(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+            provider = locationManager.GPS_PROVIDER;
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0,this);
+        }
+        Toast.makeText(this, "New location provider: " + provider, Toast.LENGTH_SHORT).show();
+    }
+
+    // For handling changes in the set of available providers.
+    @Override
+    public void onProviderDisabled(String provider) {
+
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
+        if(!locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0,this);
+        }
+        else if(!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,1000,0,this);
+        }
+
+        Toast.makeText(this, "Current location provider disabled" , Toast.LENGTH_SHORT).show();
+    }
+
+    // Request updates at startup
     @Override
     protected void onResume() {
         super.onResume();
-        //setUpMapIfNeeded();
         locationManager.requestLocationUpdates(provider, 400, 1, this);
     }
 
-    /* Remove the locationlistener updates when Activity is paused */
+    // Remove the LocationListener updates when Activity is paused
     @Override
     protected void onPause() {
         super.onPause();
         locationManager.removeUpdates(this);
-    }
-
-    /**
-     * Sets up the map if it is possible to do so (i.e., the Google Play services APK is correctly
-     * installed) and the map has not already been instantiated.. This will ensure that we only ever
-     * call {@link #setUpMap()} once when {@link #mMap} is not null.
-     * <p>
-     * If it isn't installed {@link SupportMapFragment} (and
-     * {@link com.google.android.gms.maps.MapView MapView}) will show a prompt for the user to
-     * install/update the Google Play services APK on their device.
-     * <p>
-     * A user can return to this FragmentActivity after following the prompt and correctly
-     * installing/updating/enabling the Google Play services. Since the FragmentActivity may not
-     * have been completely destroyed during this process (it is likely that it would only be
-     * stopped or paused), {@link #onCreate(Bundle)} may not be called again so we should call this
-     * method in {@link #onResume()} to guarantee that it will be called.
-     */
-    private void setUpMapIfNeeded() {
-        // Do a null check to confirm that we have not already instantiated the map.
-        if (mMap == null) {
-            // Try to obtain the map from the SupportMapFragment.
-            mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map))
-                    .getMap();
-            // Check if we were successful in obtaining the map.
-            if (mMap != null) {
-                setUpMap();
-            }
-
-            mMap.setLocationSource(this);
-        }
-    }
-
-    /**
-     * This is where we can add markers or lines, add listeners or move the camera. In this case, we
-     * just add a marker near Africa.
-     * <p>
-     * This should only be called once and when we are sure that {@link #mMap} is not null.
-     */
-    private void setUpMap() {
-
-
-
-        //mMap.addMarker(new MarkerOptions().position(new LatLng(52.5192, 13.4061)).title("Marker"));
-        //textViewLocationProvider.setText(mProvider.getName());
-        //Toast.makeText(getApplicationContext(), "blah..", Toast.LENGTH_SHORT).show();
-        //mProvider.getName();
-    }
-
-    @Override
-    public void onLocationChanged(Location location) {
-        double lat = (location.getLatitude());
-        double lng = (location.getLongitude());
-        Toast.makeText(getApplicationContext(), "Latitude: "  + String.valueOf(lat) + "\n Longitude: " + String.valueOf(lng), Toast.LENGTH_SHORT).show();
-
-        //mMap.animateCamera(CameraUpdateFactory.newLatLng(new LatLng(location.getLatitude(), location.getLongitude())));
-
-        //LatLng current = new LatLng(location.getLatitude(), location.getLatitude());
-        //mMap.addMarker(new MarkerOptions()
-        //                .title("Current Pos")
-        //                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
-        //                .position(current)
-        //);
-
     }
 
     @Override
@@ -133,26 +159,5 @@ public class MainActivity extends FragmentActivity implements LocationListener, 
 
     }
 
-    @Override
-    public void onProviderEnabled(String provider) {
-        Toast.makeText(this, "New location provider: " + provider,
-                Toast.LENGTH_SHORT).show();
 
-    }
-
-    @Override
-    public void onProviderDisabled(String provider) {
-        Toast.makeText(this, "Disabled location provider: " + provider,
-                Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void activate(OnLocationChangedListener onLocationChangedListener) {
-
-    }
-
-    @Override
-    public void deactivate() {
-
-    }
 }
