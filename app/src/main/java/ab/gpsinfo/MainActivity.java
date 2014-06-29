@@ -22,9 +22,7 @@ public class MainActivity extends FragmentActivity implements LocationListener {
     private TextView ProviderInfo;
     private GoogleMap mMap;
     private LocationManager locationManager;
-    private LocationManager locationManagerU;
     private String provider;
-    private String providerU;
 
     // no costs, high accuracy, low battery consumption means that wifi or mobile networks will be
     // used for the location provider when possible. Otherwise GPS will be used.
@@ -114,11 +112,11 @@ public class MainActivity extends FragmentActivity implements LocationListener {
 
         if(locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
             provider = locationManager.NETWORK_PROVIDER;
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,1000,0,this);
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,4000,0,this);
         }
         else if(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
             provider = locationManager.GPS_PROVIDER;
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0,this);
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,4000,0,this);
         }
         Toast.makeText(this, "New location provider: " + provider, Toast.LENGTH_SHORT).show();
     }
@@ -130,10 +128,10 @@ public class MainActivity extends FragmentActivity implements LocationListener {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
         if(!locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0,this);
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,4000,0,this);
         }
         else if(!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,1000,0,this);
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,4000,0,this);
         }
 
         Toast.makeText(this, "Current location provider disabled" , Toast.LENGTH_SHORT).show();
